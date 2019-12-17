@@ -25,7 +25,7 @@ pub const TAG_METRICS: u16 = 0x0107;
 pub const TAG_SEQUENCE_NUMBER: u16 = 0x0108;
 pub const TAG_CREDIT_SCALE_FACTOR: u16 = 0x0109;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum Tag<'a> {
     EndOfList,
     ServiceName(&'a [u8]),
