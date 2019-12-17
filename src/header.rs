@@ -191,7 +191,11 @@ impl<'a> Header<'a> {
         }
     }
 
-    fn create_packet(code: Code, buffer: &mut [u8], session_id: u16) -> Result<Header, ParseError> {
+    pub fn create_packet(
+        buffer: &mut [u8],
+        code: Code,
+        session_id: u16,
+    ) -> Result<Header, ParseError> {
         Self::ensure_minimal_buffer_length(buffer);
 
         // set version and type
@@ -204,19 +208,23 @@ impl<'a> Header<'a> {
     }
 
     pub fn create_padi(buffer: &mut [u8]) -> Result<Header, ParseError> {
-        Self::create_packet(Code::Padi, buffer, 0)
+        Self::create_packet(buffer, Code::Padi, 0)
     }
 
     pub fn create_pado(buffer: &mut [u8]) -> Result<Header, ParseError> {
-        Self::create_packet(Code::Pado, buffer, 0)
-    }
-
-    pub fn create_pads(buffer: &mut [u8], session_id: NonZeroU16) -> Result<Header, ParseError> {
-        Self::create_packet(Code::Pads, buffer, u16::from(session_id))
+        Self::create_packet(buffer, Code::Pado, 0)
     }
 
     pub fn create_padr(buffer: &mut [u8]) -> Result<Header, ParseError> {
-        Self::create_packet(Code::Padr, buffer, 0)
+        Self::create_packet(buffer, Code::Padr, 0)
+    }
+
+    pub fn create_pads(buffer: &mut [u8], session_id: NonZeroU16) -> Result<Header, ParseError> {
+        Self::create_packet(buffer, Code::Pads, u16::from(session_id))
+    }
+
+    pub fn create_padt(buffer: &mut [u8], session_id: NonZeroU16) -> Result<Header, ParseError> {
+        Self::create_packet(buffer, Code::Padt, u16::from(session_id))
     }
 
     pub fn create_padr_from_pado(
@@ -269,10 +277,6 @@ impl<'a> Header<'a> {
         }
 
         Ok(padr)
-    }
-
-    pub fn create_padt(buffer: &mut [u8]) -> Result<Header, ParseError> {
-        Self::create_packet(Code::Padt, buffer, 0)
     }
 
     pub fn tag_iter(&self) -> TagIterator {
