@@ -329,8 +329,146 @@ impl<'a> Into<&'a [u8]> for Header<'a> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use std::u8;
+
+    macro_rules! create_tags {
+        ($content:expr, $($tag:path),* $(,)? ) => {{
+            let mut vec = Vec::new();
+            $(
+                let tag = $tag($content);
+                let id = tag.get_tag_type();
+                vec.push((id, tag));
+            )*
+            vec
+        }}
+    }
+
+    fn minimal_header<'a>(buffer: &'a mut [u8], service_name: Option<&[u8]>) -> Header<'a> {
+        let mut header = Header::create_padi(&mut buffer[..]).unwrap();
+        if let Some(service_name) = service_name {
+            header.add_tag(Tag::ServiceName(service_name)).unwrap();
+        } else {
+            header.add_tag(Tag::ServiceName(b"")).unwrap();
+        }
+        header
+    }
+
+    fn minimal_header_with_eol<'a>(buffer: &'a mut [u8], service_name: Option<&[u8]>) -> Header<'a> {
+        let mut header = minimal_header(buffer, service_name);
+        header.add_tag(Tag::EndOfList).unwrap();
+        header
+    }
+
+    fn expect_parse_error(buffer: &mut [u8]) -> ParseError {
+        let should_be_error = Header::from_buffer(&mut buffer[..]);
+        assert!(should_be_error.is_err());
+        should_be_error.unwrap_err()
+    }
+
     #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+    fn duplicate_tag_detection() {
+        let buffer = &mut [0u8; 200];
+        let content = b"abcdef123";
+        let tags = create_tags!(
+            content,
+            Tag::ServiceName,
+            Tag::AcName,
+            Tag::HostUniq,
+            Tag::RelaySessionId,
+        );
+
+        for (id, tag) in tags {
+            let mut header = Header::create_padi(buffer).unwrap();
+            header.add_tag(tag).unwrap();
+            header.add_tag(tag).unwrap();
+
+            let err = expect_parse_error(buffer);
+            assert_eq!(err, ParseError::DuplicateTag(id));
+        }
+    }
+
+    #[test]
+    fn reported_length_bigger_than_packet() {
+        let buffer = &mut [0u8; 200];
+        let mut header = minimal_header_with_eol(buffer, None);
+        unsafe { header.set_len(555) };
+
+        let err = expect_parse_error(buffer);
+        assert!(match err {
+            ParseError::PayloadLengthOutOfBound {..} => true,
+            _ => false
+        });
+    }
+
+    #[test]
+    fn buffer_less_than_minimal_required_size() {
+        let buffer = &mut [0u8; 4];
+        let err = expect_parse_error(buffer);
+        assert!(match err {
+            ParseError::BufferTooSmall(_) => true,
+            _ => false
+        });
+    }
+
+    #[test]
+    fn invalid_pppoe_version() {
+        let buffer = &mut [0u8; 20];
+        let err = expect_parse_error(buffer);
+        assert!(match err {
+            ParseError::InvalidPppoeVersion(_) => true,
+            _ => false
+        })
+    }
+
+    #[test]
+    fn invalid_pppoe_type() {
+        let buffer = &mut [0u8; 20];
+        buffer[0] = 0x01 << 4;
+        let err = expect_parse_error(buffer);
+        assert!(match err {
+            ParseError::InvalidPppoeType(_) => true,
+            _ => false
+        });
+    }
+
+    #[test]
+    fn invalid_pppoe_code() {
+        let buffer = &mut [0u8; 20];
+        minimal_header(buffer, None);
+        for code in 0..=u8::MAX {
+            buffer[1] = code;
+            match code {
+                PADI | PADO | PADR | PADS | PADT => { continue },
+                _ => {
+                    let err = expect_parse_error(buffer);
+                    assert!(match err {
+                        ParseError::InvalidPppoeCode(_) => true,
+                        _ => false
+                    });
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn missing_service_name() {
+        let buffer = &mut [0u8; 20];
+        buffer[0] = 0x11;
+        buffer[1] = PADI;
+        let err = expect_parse_error(buffer);
+        assert!( match err {
+            ParseError::MissingServiceName => true,
+            _ => false,
+        });
+
+        Header::create_padi(buffer).unwrap()
+            .add_tag(Tag::EndOfList);
+
+        let err = expect_parse_error(buffer);
+        assert!(match err {
+            ParseError::MissingServiceName => true,
+            _ => false,
+        });
     }
 }
