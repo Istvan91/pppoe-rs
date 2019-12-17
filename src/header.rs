@@ -6,24 +6,30 @@ use core::{convert::TryFrom, u16};
 use crate::error::ParseError;
 use crate::{tag, Tag, TagIterator};
 
+pub const PADI: u8 = 0x09;
+pub const PADO: u8 = 0x07;
+pub const PADR: u8 = 0x19;
+pub const PADS: u8 = 0x65;
+pub const PADT: u8 = 0xa7;
+
 #[repr(u8)]
 #[derive(PartialEq, Eq, Copy, Clone)]
 pub enum Code {
-    Padi = 0x09,
-    Pado = 0x07,
-    Padr = 0x19,
-    Pads = 0x65,
-    Padt = 0xa7,
+    Padi = PADI,
+    Pado = PADO,
+    Padr = PADR,
+    Pads = PADS,
+    Padt = PADT,
 }
 
 impl Code {
     fn try_from(code: u8) -> Result<Self, ParseError> {
         Ok(match code {
-            0x09 => Code::Padi,
-            0x07 => Code::Pado,
-            0x19 => Code::Padr,
-            0x65 => Code::Pads,
-            0xa7 => Code::Padt,
+            PADI => Code::Padi,
+            PADO => Code::Pado,
+            PADR => Code::Padr,
+            PADS => Code::Pads,
+            PADT => Code::Padt,
             _ => return Err(ParseError::InvalidPppoeCode(code)),
         })
     }
