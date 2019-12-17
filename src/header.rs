@@ -330,7 +330,6 @@ impl<'a> Header<'a> {
         F: FnOnce(&mut [u8]) -> Result<usize, ParseError>,
     {
         let packet_length = self.len();
-        let buffer_length = self.0.len();
 
         let payload_end = &mut self.0[packet_length..];
 
@@ -516,7 +515,10 @@ mod tests {
             _ => false,
         });
 
-        Header::create_padi(buffer).unwrap().add_tag(Tag::EndOfList);
+        Header::create_padi(buffer)
+            .unwrap()
+            .add_tag(Tag::EndOfList)
+            .unwrap();
 
         let err = expect_parse_error(buffer);
         assert!(match err {

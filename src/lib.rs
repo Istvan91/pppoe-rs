@@ -17,27 +17,9 @@ mod tags;
 pub use tag::Tr101Information;
 pub use tags::*;
 
-use std::io;
-
-fn c_call_with_os_error<F>(call: F) -> io::Result<()>
-where
-    F: Fn() -> libc::c_int,
-{
-    let ret = call();
-
-    if ret < 0 {
-        return Err(io::Error::last_os_error());
-    }
-
-    return Ok(());
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    use std::num::NonZeroU16;
-
     #[cfg(feature = "tr101")]
     #[test]
     fn send_packet() {

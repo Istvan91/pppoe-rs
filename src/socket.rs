@@ -12,8 +12,21 @@ pub struct Socket {
     connection: pppoe::Connection,
 }
 
+fn c_call_with_os_error<F>(call: F) -> io::Result<()>
+where
+    F: Fn() -> libc::c_int,
+{
+    let ret = call();
+
+    if ret < 0 {
+        return Err(io::Error::last_os_error());
+    }
+
+    return Ok(());
+}
+
 fn set_nonblock(fd: libc::c_int) -> io::Result<()> {
-    crate::c_call_with_os_error(|| unsafe {
+    c_call_with_os_error(|| unsafe {
         let flags = libc::fcntl(fd, libc::F_GETFL);
         libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK)
     })
