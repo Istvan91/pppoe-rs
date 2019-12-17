@@ -31,29 +31,29 @@ mod tests {
         let mut buffer = [0u8; 1450];
         let mut packet = Packet::new_discovery_packet(
             &mut buffer[..],
-            &[0xfe, 0xb9, 0x04, 0x2a, 0xb2, 0x35],
-            &[0xff, 0xff, 0xff, 0xff, 0xff, 0xff],
+            [0xfe, 0xb9, 0x04, 0x2a, 0xb2, 0x35],
+            [0xff, 0xff, 0xff, 0xff, 0xff, 0xff],
         )
         .unwrap();
 
         {
             let pppoe_header = packet.pppoe_header_mut();
-            pppoe_header.add_tag(Tag::PppMaxMtu(2000));
-            pppoe_header.add_tag(Tag::ServiceName(b"\0"));
-            pppoe_header.add_tag(Tag::RelaySessionId(b"abc"));
-            pppoe_header.add_tag(Tag::HostUniq(b"abcanretadi\0arnedt"));
+            pppoe_header.add_tag(Tag::PppMaxMtu(2000)).unwrap();
+            pppoe_header.add_tag(Tag::ServiceName(b"\0")).unwrap();
+            pppoe_header.add_tag(Tag::RelaySessionId(b"abc")).unwrap();
+            pppoe_header.add_tag(Tag::HostUniq(b"abcanretadi\0arnedt")).unwrap();
             pppoe_header.add_vendor_tag_with_callback(|buffer| {
                 Tr101Information::with_both_ids("circuit", "remoteid")
                     .and_then(|tr101| tr101.write(buffer))
-            });
-            pppoe_header.add_tag(Tag::EndOfList);
+            }).unwrap();
+            pppoe_header.add_tag(Tag::EndOfList).unwrap();
         }
 
         let ret = sock.send(packet.as_bytes());
         assert!(ret.is_ok());
 
         let len = sock.recv(&mut receive_buffer[..]).unwrap();
-        let mut pado = Packet::from_buffer(&mut receive_buffer[..len]).unwrap();
+        let pado = Packet::from_buffer(&mut receive_buffer[..len]).unwrap();
 
         {
             let dst = pado.ethernet_header().src_address();
@@ -64,11 +64,11 @@ mod tests {
 
             for tag in pado.pppoe_header().tag_iter() {
                 if let Tag::AcCookie(cookie) = tag {
-                    pppoe_header.add_tag(Tag::AcCookie(cookie));
+                    pppoe_header.add_tag(Tag::AcCookie(cookie)).unwrap();
                 }
             }
 
-            pppoe_header.add_tag(Tag::EndOfList);
+            pppoe_header.add_tag(Tag::EndOfList).unwrap();
         }
 
         let ret = sock.send(packet.as_bytes());

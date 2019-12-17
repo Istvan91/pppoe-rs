@@ -33,8 +33,8 @@ impl<'a> Packet<'a> {
 
     pub fn new_discovery_packet(
         buffer: &'a mut [u8],
-        src_mac: &[u8; 6],
-        dst_mac: &[u8; 6],
+        src_mac: [u8; 6],
+        dst_mac: [u8; 6],
     ) -> Result<Self, Error> {
         Self::ensure_minimal_buffer_size(buffer)?;
 

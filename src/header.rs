@@ -223,6 +223,10 @@ impl<'a> Header<'a> {
         }
     }
 
+    pub fn is_empty(&mut self) -> bool {
+        self.len() == 6
+    }
+
     pub fn create_packet(
         buffer: &mut [u8],
         code: Code,
