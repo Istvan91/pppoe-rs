@@ -149,7 +149,9 @@ impl<'a> Header<'a> {
             return Err(ParseError::DataBehindEolTag);
         }
 
-        if !service_name { return Err(ParseError::MissingServiceName); }
+        if !service_name {
+            return Err(ParseError::MissingServiceName);
+        }
 
         Ok(())
     }
@@ -361,7 +363,10 @@ mod tests {
         header
     }
 
-    fn minimal_header_with_eol<'a>(buffer: &'a mut [u8], service_name: Option<&[u8]>) -> Header<'a> {
+    fn minimal_header_with_eol<'a>(
+        buffer: &'a mut [u8],
+        service_name: Option<&[u8]>,
+    ) -> Header<'a> {
         let mut header = minimal_header(buffer, service_name);
         header.add_tag(Tag::EndOfList).unwrap();
         header
@@ -403,8 +408,8 @@ mod tests {
 
         let err = expect_parse_error(buffer);
         assert!(match err {
-            ParseError::PayloadLengthOutOfBound {..} => true,
-            _ => false
+            ParseError::PayloadLengthOutOfBound { .. } => true,
+            _ => false,
         });
     }
 
@@ -414,7 +419,7 @@ mod tests {
         let err = expect_parse_error(buffer);
         assert!(match err {
             ParseError::BufferTooSmall(_) => true,
-            _ => false
+            _ => false,
         });
     }
 
@@ -424,7 +429,7 @@ mod tests {
         let err = expect_parse_error(buffer);
         assert!(match err {
             ParseError::InvalidPppoeVersion(_) => true,
-            _ => false
+            _ => false,
         })
     }
 
@@ -435,7 +440,7 @@ mod tests {
         let err = expect_parse_error(buffer);
         assert!(match err {
             ParseError::InvalidPppoeType(_) => true,
-            _ => false
+            _ => false,
         });
     }
 
@@ -446,12 +451,12 @@ mod tests {
         for code in 0..=u8::MAX {
             buffer[1] = code;
             match code {
-                PADI | PADO | PADR | PADS | PADT => { continue },
+                PADI | PADO | PADR | PADS | PADT => continue,
                 _ => {
                     let err = expect_parse_error(buffer);
                     assert!(match err {
                         ParseError::InvalidPppoeCode(_) => true,
-                        _ => false
+                        _ => false,
                     });
                 }
             }
@@ -464,13 +469,12 @@ mod tests {
         buffer[0] = 0x11;
         buffer[1] = PADI;
         let err = expect_parse_error(buffer);
-        assert!( match err {
+        assert!(match err {
             ParseError::MissingServiceName => true,
             _ => false,
         });
 
-        Header::create_padi(buffer).unwrap()
-            .add_tag(Tag::EndOfList);
+        Header::create_padi(buffer).unwrap().add_tag(Tag::EndOfList);
 
         let err = expect_parse_error(buffer);
         assert!(match err {
