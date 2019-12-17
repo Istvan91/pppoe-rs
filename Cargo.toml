@@ -1,0 +1,21 @@
+[package]
+name = "pppoe"
+version = "0.1.0"
+authors = ["Istvan Ruzman <istvan@ruzman.eu>"]
+license = "Apache-2.0 OR MIT"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+libc = "0.2"
+pppoe-sys = { path = "pppoe-sys", optional = true }
+byteorder = { version = "1", default-features = false }
+
+mio = { version = "0.6", optional = true }
+
+[features]
+default = []
+async = ["mio"]
+socket = ["pppoe-sys"]
+tr101 = []
