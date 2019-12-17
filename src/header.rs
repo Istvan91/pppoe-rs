@@ -91,6 +91,7 @@ impl<'a> Header<'a> {
 
         // these tags must only exists once
         let mut service_name = false;
+        let mut host_uniq = false;
         let mut ac_name = false;
         let mut relay_session_id = false;
         let mut ppp_max_payload = false;
@@ -117,6 +118,7 @@ impl<'a> Header<'a> {
                         tag::TAG_SERVICE_NAME => Self::check_duplicate(tag, &mut service_name)?,
                         tag::TAG_AC_NAME => Self::check_duplicate(tag, &mut ac_name)?,
                         tag::TAG_AC_COOKIE => Self::check_duplicate(tag, &mut ac_cookie)?,
+                        tag::TAG_HOST_UNIQ => Self::check_duplicate(tag, &mut host_uniq)?,
                         tag::TAG_RELAY_SESSION_ID => {
                             Self::check_duplicate(tag, &mut relay_session_id)?
                         }
