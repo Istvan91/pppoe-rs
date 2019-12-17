@@ -35,19 +35,26 @@ impl Code {
     }
 }
 
+fn ensure_minimal_buffer_length(buffer: &[u8]) -> Result<(), ParseError> {
+    if buffer.len() < 6 {
+        return Err(ParseError::BufferTooSmall(buffer.len()));
+    }
+    Ok(())
+}
+
 #[derive(Debug)]
-pub struct Header<'a>(&'a mut [u8]);
+pub struct Header<'a>(&'a [u8]);
 
 impl<'a> Header<'a> {
-    pub fn from_buffer(buffer: &mut [u8]) -> Result<Header, ParseError> {
-        Self::from_buffer_with_code(buffer, None)
+    pub fn with_buffer(buffer: &'a [u8]) -> Result<Self, ParseError> {
+        Self::with_buffer_and_code(buffer, None)
     }
 
-    pub fn from_buffer_with_code(
-        buffer: &mut [u8],
+    pub fn with_buffer_and_code(
+        buffer: &'a [u8],
         expected_code: Option<Code>,
-    ) -> Result<Header, ParseError> {
-        Self::ensure_minimal_buffer_length(buffer)?;
+    ) -> Result<Header<'a>, ParseError> {
+        ensure_minimal_buffer_length(buffer)?;
         if buffer[0] != 0x11 {
             let version = buffer[0] >> 4;
             let r#type = buffer[0] & 0x0f;
@@ -75,36 +82,37 @@ impl<'a> Header<'a> {
             return Err(ParseError::MissingServiceName);
         }
 
-        Self::validate_tags(&mut buffer[6..6 + length])?;
+        Self::validate_tags(&buffer[6..6 + length])?;
 
         Ok(Header(buffer))
     }
 
-    pub fn padi_from_buffer(buffer: &mut [u8]) -> Result<Header, ParseError> {
-        Self::from_buffer_with_code(buffer, Some(Code::Padi))
+    pub fn padi_with_buffer(buffer: &'a [u8]) -> Result<Self, ParseError> {
+        Self::with_buffer_and_code(buffer, Some(Code::Padi))
     }
 
-    pub fn pado_from_buffer(buffer: &mut [u8]) -> Result<Header, ParseError> {
-        Self::from_buffer_with_code(buffer, Some(Code::Pado))
+    pub fn pado_with_buffer(buffer: &'a [u8]) -> Result<Header<'a>, ParseError> {
+        Self::with_buffer_and_code(buffer, Some(Code::Pado))
     }
 
-    pub fn padr_from_buffer(buffer: &mut [u8]) -> Result<Header, ParseError> {
-        Self::from_buffer_with_code(buffer, Some(Code::Padr))
+    pub fn padr_with_buffer(buffer: &'a [u8]) -> Result<Header<'a>, ParseError> {
+        Self::with_buffer_and_code(buffer, Some(Code::Padr))
     }
 
-    pub fn pads_from_buffer(buffer: &mut [u8]) -> Result<Header, ParseError> {
-        Self::from_buffer_with_code(buffer, Some(Code::Pads))
+    pub fn pads_with_buffer(buffer: &'a [u8]) -> Result<Header<'a>, ParseError> {
+        Self::with_buffer_and_code(buffer, Some(Code::Pads))
     }
 
-    pub fn padt_from_buffer(buffer: &mut [u8]) -> Result<Header, ParseError> {
-        Self::from_buffer_with_code(buffer, Some(Code::Padt))
+    pub fn padt_with_buffer(buffer: &'a [u8]) -> Result<Header<'a>, ParseError> {
+        Self::with_buffer_and_code(buffer, Some(Code::Padt))
     }
 
-    fn ensure_minimal_buffer_length(buffer: &mut [u8]) -> Result<(), ParseError> {
-        if buffer.len() < 6 {
-            return Err(ParseError::BufferTooSmall(buffer.len()));
-        }
-        Ok(())
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.0
+    }
+
+    pub fn get_ref(&self) -> &[u8] {
+        &self.0
     }
 
     fn check_duplicate(tag: u16, exists: &mut bool) -> Result<(), ParseError> {
@@ -192,8 +200,34 @@ impl<'a> Header<'a> {
         self.0[1]
     }
 
-    pub fn set_code(&mut self, code: Code) {
-        self.0[1] = code as u8;
+    pub fn session_id(&self) -> u16 {
+        NE::read_u16(&self.0[2..])
+    }
+
+    pub fn len(&self) -> usize {
+        usize::from(6 + NE::read_u16(&self.0[4..]))
+    }
+
+    pub fn is_empty(&mut self) -> bool {
+        self.len() == 6
+    }
+
+    pub fn payload(&self) -> &[u8] {
+        &self.0[6..]
+    }
+
+    pub fn tag_iter(&self) -> TagIterator {
+        TagIterator {
+            payload: &self.0[6..self.len()],
+        }
+    }
+}
+
+pub struct HeaderBuilder<'a>(&'a mut [u8]);
+
+impl<'a> HeaderBuilder<'a> {
+    pub fn code(&self) -> u8 {
+        self.0[1]
     }
 
     pub fn session_id(&self) -> u16 {
@@ -204,16 +238,28 @@ impl<'a> Header<'a> {
         usize::from(6 + NE::read_u16(&self.0[4..]))
     }
 
-    unsafe fn set_len(&mut self, new_length: u16) {
-        NE::write_u16(&mut self.0[4..], new_length)
+    pub fn is_empty(&mut self) -> bool {
+        self.len() == 6
     }
 
     pub fn payload(&self) -> &[u8] {
         &self.0[6..]
     }
 
+    pub fn tag_iter(&self) -> TagIterator {
+        TagIterator {
+            payload: &self.0[6..self.len()],
+        }
+    }
+    pub fn set_code(&mut self, code: Code) {
+        self.0[1] = code as u8;
+    }
+
+    unsafe fn set_len(&mut self, new_length: u16) {
+        NE::write_u16(&mut self.0[4..], new_length)
+    }
+
     pub fn clear_payload(&mut self) {
-        //  NE::write_u16(&mut self.0[4..], 0)
         unsafe { self.set_len(0) };
     }
 
@@ -223,16 +269,12 @@ impl<'a> Header<'a> {
         }
     }
 
-    pub fn is_empty(&mut self) -> bool {
-        self.len() == 6
-    }
-
     pub fn create_packet(
-        buffer: &mut [u8],
+        buffer: &'a mut [u8],
         code: Code,
         session_id: u16,
-    ) -> Result<Header, ParseError> {
-        Self::ensure_minimal_buffer_length(buffer)?;
+    ) -> Result<Self, ParseError> {
+        ensure_minimal_buffer_length(buffer)?;
 
         // set version and type
         buffer[0] = 0x11;
@@ -240,35 +282,35 @@ impl<'a> Header<'a> {
         NE::write_u16(&mut buffer[2..], session_id);
         NE::write_u16(&mut buffer[4..], 0);
 
-        Ok(Header(buffer))
+        Ok(HeaderBuilder(buffer))
     }
 
-    pub fn create_padi(buffer: &mut [u8]) -> Result<Header, ParseError> {
+    pub fn create_padi(buffer: &'a mut [u8]) -> Result<Self, ParseError> {
         Self::create_packet(buffer, Code::Padi, 0)
     }
 
-    pub fn create_pado(buffer: &mut [u8]) -> Result<Header, ParseError> {
+    pub fn create_pado(buffer: &'a mut [u8]) -> Result<Self, ParseError> {
         Self::create_packet(buffer, Code::Pado, 0)
     }
 
-    pub fn create_padr(buffer: &mut [u8]) -> Result<Header, ParseError> {
+    pub fn create_padr(buffer: &'a mut [u8]) -> Result<Self, ParseError> {
         Self::create_packet(buffer, Code::Padr, 0)
     }
 
-    pub fn create_pads(buffer: &mut [u8], session_id: NonZeroU16) -> Result<Header, ParseError> {
+    pub fn create_pads(buffer: &'a mut [u8], session_id: NonZeroU16) -> Result<Self, ParseError> {
         Self::create_packet(buffer, Code::Pads, u16::from(session_id))
     }
 
-    pub fn create_padt(buffer: &mut [u8], session_id: NonZeroU16) -> Result<Header, ParseError> {
+    pub fn create_padt(buffer: &'a mut [u8], session_id: NonZeroU16) -> Result<Self, ParseError> {
         Self::create_packet(buffer, Code::Padt, u16::from(session_id))
     }
 
     pub fn create_padr_from_pado(
         buffer: &'a mut [u8],
-        pado: &Self,
+        pado: &Header,
         expected_service_name: Option<&[u8]>,
         expected_ac_name: Option<&[u8]>,
-    ) -> Result<Header<'a>, ParseError> {
+    ) -> Result<Self, ParseError> {
         let mut padr = Self::create_padr(buffer)?;
 
         let mut tag_iterator = pado.tag_iter();
@@ -315,12 +357,6 @@ impl<'a> Header<'a> {
         Ok(padr)
     }
 
-    pub fn tag_iter(&self) -> TagIterator {
-        TagIterator {
-            payload: &self.0[6..self.len()],
-        }
-    }
-
     pub fn add_tag(&mut self, tag: Tag) -> Result<(), ParseError> {
         let packet_length = self.len();
 
@@ -350,28 +386,12 @@ impl<'a> Header<'a> {
         self.add_tag(Tag::EndOfList)
     }
 
-    pub fn as_bytes(&self) -> &[u8] {
-        self.as_ref()
-    }
-
     pub fn get_ref_mut(&mut self) -> &mut [u8] {
         &mut self.0
     }
 
-    pub fn get_ref(&self) -> &[u8] {
-        &self.0
-    }
-}
-
-impl<'a> AsRef<[u8]> for Header<'a> {
-    fn as_ref(&self) -> &[u8] {
-        self.0
-    }
-}
-
-impl<'a> Into<&'a [u8]> for Header<'a> {
-    fn into(self) -> &'a [u8] {
-        self.0
+    pub fn build(self) -> Result<Header<'a>, ParseError> {
+        Header::with_buffer(self.0)
     }
 }
 
@@ -392,34 +412,34 @@ mod tests {
         }}
     }
 
-    fn minimal_header<'a>(buffer: &'a mut [u8], service_name: Option<&[u8]>) -> Header<'a> {
-        let mut header = Header::create_padi(&mut buffer[..]).unwrap();
+    fn minimal_header<'a>(buffer: &'a mut [u8], service_name: Option<&[u8]>) -> HeaderBuilder<'a> {
+        let mut builder = HeaderBuilder::create_padi(&mut buffer[..]).unwrap();
         if let Some(service_name) = service_name {
-            header.add_tag(Tag::ServiceName(service_name)).unwrap();
+            builder.add_tag(Tag::ServiceName(service_name)).unwrap();
         } else {
-            header.add_tag(Tag::ServiceName(b"")).unwrap();
+            builder.add_tag(Tag::ServiceName(b"")).unwrap();
         }
-        header
+        builder
     }
 
     fn minimal_header_with_eol<'a>(
         buffer: &'a mut [u8],
         service_name: Option<&[u8]>,
-    ) -> Header<'a> {
-        let mut header = minimal_header(buffer, service_name);
-        header.add_tag(Tag::EndOfList).unwrap();
-        header
+    ) -> HeaderBuilder<'a> {
+        let mut builder = minimal_header(buffer, service_name);
+        builder.add_tag(Tag::EndOfList).unwrap();
+        builder
     }
 
-    fn expect_parse_error(buffer: &mut [u8]) -> ParseError {
-        let should_be_error = Header::from_buffer(&mut buffer[..]);
+    fn expect_parse_error(buffer: &[u8]) -> ParseError {
+        let should_be_error = Header::with_buffer(&buffer[..]);
         assert!(should_be_error.is_err());
         should_be_error.unwrap_err()
     }
 
     #[test]
     fn duplicate_tag_detection() {
-        let buffer = &mut [0u8; 200];
+        let buffer = &mut [0u8; 200][..];
         let content = b"abcdef123";
         let tags = create_tags!(
             content,
@@ -430,7 +450,7 @@ mod tests {
         );
 
         for (id, tag) in tags {
-            let mut header = Header::create_padi(buffer).unwrap();
+            let mut header = HeaderBuilder::create_padi(buffer).unwrap();
             header.add_tag(tag).unwrap();
             header.add_tag(tag).unwrap();
 
@@ -441,7 +461,7 @@ mod tests {
 
     #[test]
     fn reported_length_bigger_than_packet() {
-        let buffer = &mut [0u8; 200];
+        let buffer = &mut [0u8; 200][..];
         let mut header = minimal_header_with_eol(buffer, None);
         unsafe { header.set_len(555) };
 
@@ -465,7 +485,7 @@ mod tests {
     #[test]
     fn buffer_less_than_minimal_required_size_for_creation() {
         let buffer = &mut [0u8; 4];
-        assert!(Header::create_padi(buffer).is_err());
+        assert!(HeaderBuilder::create_padi(buffer).is_err());
     }
 
     #[test]
@@ -519,7 +539,7 @@ mod tests {
             _ => false,
         });
 
-        Header::create_padi(buffer)
+        HeaderBuilder::create_padi(buffer)
             .unwrap()
             .add_tag(Tag::EndOfList)
             .unwrap();
@@ -533,17 +553,17 @@ mod tests {
 
     #[test]
     fn pppoe_code_conditional_parsing() {
-        let buffer = &mut [0u8; 200];
+        let buffer = &mut [0u8; 200][..];
         let codes = [Code::Padi, Code::Pado, Code::Padr, Code::Pads, Code::Padt];
         let session_ids = [0, 0, 0, 1, 1];
 
         for (i, code) in codes.iter().cloned().enumerate() {
-            Header::create_packet(buffer, code, session_ids[i])
+            HeaderBuilder::create_packet(buffer, code, session_ids[i])
                 .unwrap()
                 .add_tag(Tag::ServiceName(b"abc"))
                 .unwrap();
             for (j, code) in codes.iter().cloned().enumerate() {
-                let header = Header::from_buffer_with_code(buffer, Some(code));
+                let header = Header::with_buffer_and_code(buffer, Some(code));
                 if j == i {
                     assert!(header.is_ok())
                 } else {

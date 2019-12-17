@@ -169,7 +169,7 @@ impl<'a> Tag<'a> {
             | Tag::AcSystemError(msg)
             | Tag::GenericError(msg)
             | Tag::Unknown((_, msg)) => {
-                str::from_utf8(msg).map(|msg| if msg.len() == 0 { None } else { Some(msg) })
+                str::from_utf8(msg).map(|msg| if msg.is_empty() { None } else { Some(msg) })
             }
             _ => Ok(None),
         }
@@ -235,7 +235,7 @@ impl<'a> Iterator for TagIterator<'a> {
     type Item = Tag<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.payload.len() == 0 {
+        if self.payload.is_empty() {
             return None;
         }
 
