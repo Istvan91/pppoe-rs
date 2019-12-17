@@ -228,7 +228,7 @@ impl<'a> Header<'a> {
         code: Code,
         session_id: u16,
     ) -> Result<Header, ParseError> {
-        Self::ensure_minimal_buffer_length(buffer);
+        Self::ensure_minimal_buffer_length(buffer)?;
 
         // set version and type
         buffer[0] = 0x11;
@@ -450,13 +450,19 @@ mod tests {
     }
 
     #[test]
-    fn buffer_less_than_minimal_required_size() {
+    fn buffer_less_than_minimal_required_size_for_parsing() {
         let buffer = &mut [0u8; 4];
         let err = expect_parse_error(buffer);
         assert!(match err {
             ParseError::BufferTooSmall(_) => true,
             _ => false,
         });
+    }
+
+    #[test]
+    fn buffer_less_than_minimal_required_size_for_creation() {
+        let buffer = &mut [0u8; 4];
+        assert!(Header::create_padi(buffer).is_err());
     }
 
     #[test]
