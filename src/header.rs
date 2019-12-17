@@ -59,6 +59,8 @@ impl<'a> Header<'a> {
                 actual_packet_length: buffer.len() as u16,
                 payload_length: length as u16,
             });
+        } else if length == 0 {
+            return Err(ParseError::MissingServiceName);
         }
 
         Self::validate_tags(&mut buffer[6..6 + length])?;
@@ -144,7 +146,10 @@ impl<'a> Header<'a> {
         if length != 0 || payload.len() != 4 {
             return Err(ParseError::DataBehindEolTag);
         }
-        return Ok(());
+
+        if !service_name { return Err(ParseError::MissingServiceName); }
+
+        Ok(())
     }
 
     pub fn code(&self) -> u8 {
