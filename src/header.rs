@@ -40,6 +40,13 @@ pub struct Header<'a>(&'a mut [u8]);
 
 impl<'a> Header<'a> {
     pub fn from_buffer(buffer: &mut [u8]) -> Result<Header, ParseError> {
+        Self::from_buffer_with_code(buffer, None)
+    }
+
+    pub fn from_buffer_with_code(
+        buffer: &mut [u8],
+        expected_code: Option<Code>,
+    ) -> Result<Header, ParseError> {
         Self::ensure_minimal_buffer_length(buffer)?;
         if buffer[0] != 0x11 {
             let version = buffer[0] >> 4;
@@ -51,7 +58,12 @@ impl<'a> Header<'a> {
             };
         }
 
-        Code::try_from(buffer[1])?;
+        let code = Code::try_from(buffer[1])?;
+        if let Some(expected_code) = expected_code {
+            if code != expected_code {
+                return Err(ParseError::UnexpectedCode(code as u8));
+            }
+        }
 
         let length = usize::from(NE::read_u16(&buffer[4..]));
         if length + 6 > buffer.len() {
@@ -66,6 +78,26 @@ impl<'a> Header<'a> {
         Self::validate_tags(&mut buffer[6..6 + length])?;
 
         Ok(Header(buffer))
+    }
+
+    pub fn padi_from_buffer(buffer: &mut [u8]) -> Result<Header, ParseError> {
+        Self::from_buffer_with_code(buffer, Some(Code::Padi))
+    }
+
+    pub fn pado_from_buffer(buffer: &mut [u8]) -> Result<Header, ParseError> {
+        Self::from_buffer_with_code(buffer, Some(Code::Pado))
+    }
+
+    pub fn padr_from_buffer(buffer: &mut [u8]) -> Result<Header, ParseError> {
+        Self::from_buffer_with_code(buffer, Some(Code::Padr))
+    }
+
+    pub fn pads_from_buffer(buffer: &mut [u8]) -> Result<Header, ParseError> {
+        Self::from_buffer_with_code(buffer, Some(Code::Pads))
+    }
+
+    pub fn padt_from_buffer(buffer: &mut [u8]) -> Result<Header, ParseError> {
+        Self::from_buffer_with_code(buffer, Some(Code::Padt))
     }
 
     fn ensure_minimal_buffer_length(buffer: &mut [u8]) -> Result<(), ParseError> {
@@ -485,5 +517,27 @@ mod tests {
             ParseError::MissingServiceName => true,
             _ => false,
         });
+    }
+
+    #[test]
+    fn pppoe_code_conditional_parsing() {
+        let buffer = &mut [0u8; 200];
+        let codes = [Code::Padi, Code::Pado, Code::Padr, Code::Pads, Code::Padt];
+        let session_ids = [0, 0, 0, 1, 1];
+
+        for (i, code) in codes.iter().cloned().enumerate() {
+            Header::create_packet(buffer, code, session_ids[i])
+                .unwrap()
+                .add_tag(Tag::ServiceName(b"abc"))
+                .unwrap();
+            for (j, code) in codes.iter().cloned().enumerate() {
+                let header = Header::from_buffer_with_code(buffer, Some(code));
+                if j == i {
+                    assert!(header.is_ok())
+                } else {
+                    assert!(header.is_err())
+                }
+            }
+        }
     }
 }

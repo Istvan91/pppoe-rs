@@ -13,6 +13,8 @@ pub enum ParseError {
     InvalidPppoeType(u8),
     InvalidPppoeCode(u8),
 
+    UnexpectedCode(u8),
+
     PayloadLengthOutOfBound {
         actual_packet_length: u16,
         payload_length: u16,
