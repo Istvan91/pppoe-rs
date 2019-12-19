@@ -2,7 +2,7 @@ use pppoe_sys::{control, pppoe};
 
 use std::io::{self, Read, Write};
 use std::os::unix::io::{FromRawFd, RawFd};
-use std::{fs, mem};
+use std::{fs, mem, num};
 
 #[cfg(feature = "async")]
 use mio::{event::Evented, unix::EventedFd, Poll, PollOpt, Ready, Token};
@@ -51,6 +51,16 @@ impl Socket {
         self.connection.raw_socket()
     }
 
+    pub fn connect_session(
+        &mut self,
+        session_id: num::NonZeroU16,
+        remote_mac: [u8; 6],
+    ) -> io::Result<RawFd> {
+        self.connection
+            .connect(session_id, remote_mac)
+            .map(|_| self.connection.pppoe_socket())
+    }
+
     pub fn mac_address(&self) -> [u8; 6] {
         self.connection.mac_address()
     }
@@ -71,6 +81,10 @@ impl Socket {
         let ret = fd.read(buffer);
         mem::forget(fd);
         ret
+    }
+
+    pub fn close(&mut self) {
+        self.connection.close_raw_socket()
     }
 }
 

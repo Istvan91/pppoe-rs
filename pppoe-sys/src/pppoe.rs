@@ -6,8 +6,9 @@ mod internal {
 
 use std::ffi::CString;
 use std::num::NonZeroU16;
-use std::os::unix::io::RawFd;
-use std::{io, mem, ptr};
+use std::os::unix::io::{RawFd, FromRawFd};
+use std::{io, mem, ptr, fs};
+
 
 #[derive(Debug)]
 #[repr(transparent)]
@@ -41,8 +42,17 @@ impl Connection {
         self.0.pppoe_socket
     }
 
+    pub fn connect(&mut self, session_id: NonZeroU16, remote_mac: [u8; 6]) -> io::Result<()> {
+        connect(self, session_id, remote_mac)
+    }
+
     pub fn mac_address(&self) -> [u8; 6] {
         self.0.mac_address
+    }
+
+    pub fn close_raw_socket(&mut self) {
+        drop(unsafe { fs::File::from_raw_fd(self.0.raw_socket) });
+        self.0.raw_socket = 0;
     }
 }
 
@@ -66,9 +76,13 @@ pub fn connection_data_init(
     Ok(())
 }
 
-pub fn connect(connection: &mut Connection, session_id: NonZeroU16) -> io::Result<()> {
+pub fn connect(connection: &mut Connection, session_id: NonZeroU16, remote_mac: [u8; 6]) -> io::Result<()> {
     let ret =
-        unsafe { internal::pppoe_connect(&mut connection.0 as *mut _, u16::from(session_id)) };
+        unsafe { internal::pppoe_connect(
+                    &mut connection.0 as *mut _,
+                    u16::from(session_id),
+                    &remote_mac as *const _)
+        };
 
     if ret < 0 {
         return Err(io::Error::last_os_error());

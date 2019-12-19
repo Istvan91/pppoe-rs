@@ -117,17 +117,17 @@ int pppoe_create_socket(void) {
 }
 
 
-int pppoe_connect(struct PppoeConnectionData const *const data, uint16_t pppoe_session_id) {
+int pppoe_connect(struct PppoeConnectionData const *const data, uint16_t pppoe_session_id, unsigned char const *const remote_mac) {
 	assert(NULL != data);
 
 	struct sockaddr_pppox sp;
 
 	sp.sa_family = AF_PPPOX;
 	sp.sa_protocol = PX_PROTO_OE;
-	sp.sa_addr.pppoe.sid = pppoe_session_id;
+	sp.sa_addr.pppoe.sid = htons(pppoe_session_id);
 
 	memcpy(sp.sa_addr.pppoe.dev, data->interface_name, sizeof sp.sa_addr.pppoe.dev);
-	memcpy(sp.sa_addr.pppoe.remote, data->mac_address, sizeof sp.sa_addr.pppoe.remote);
+	memcpy(sp.sa_addr.pppoe.remote, remote_mac, sizeof sp.sa_addr.pppoe.remote);
 
 	return connect(data->pppoe_socket, (struct sockaddr *) &sp, sizeof sp);
 }

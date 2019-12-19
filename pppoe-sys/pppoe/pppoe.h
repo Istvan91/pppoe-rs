@@ -15,7 +15,7 @@ struct PppoeConnectionData {
 };
 
 int pppoe_create_socket(void);
-int pppoe_connect(struct PppoeConnectionData const *const data, uint16_t session_id); 
+int pppoe_connect(struct PppoeConnectionData const *const data, uint16_t session_id, unsigned char const *const remote_mac); 
 
 int pppoe_raw_socket_create(struct PppoeConnectionData *const data);
 int pppoe_raw_socket_bind(struct PppoeConnectionData const *const data);
