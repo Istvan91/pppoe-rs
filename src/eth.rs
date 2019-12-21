@@ -6,11 +6,11 @@ use crate::error::ParseError;
 
 /// A valid Ethernet Header
 #[derive(Debug)]
-pub struct Header<'a>(&'a mut [u8]);
+pub struct Header<'a>(&'a [u8]);
 
 impl<'a> Header<'a> {
     /// Parse a buffer and create a Ethernet Header from it.
-    pub fn with_buffer(buffer: &'a mut [u8]) -> Result<Self, ParseError> {
+    pub fn with_buffer(buffer: &'a [u8]) -> Result<Self, ParseError> {
         if buffer.len() < 14 {
             return Err(ParseError::BufferTooSmall(buffer.len()));
         }

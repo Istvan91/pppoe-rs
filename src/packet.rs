@@ -6,7 +6,7 @@ use std::slice;
 pub const PPPOE_DISCOVERY: u16 = 0x8863;
 pub const PPPOE_SESSION: u16 = 0x8864;
 
-fn ensure_minimal_buffer_size(buffer: &mut [u8]) -> Result<(), ParseError> {
+fn ensure_minimal_buffer_size(buffer: &[u8]) -> Result<(), ParseError> {
     // minimal eth + pppoe header size
     if buffer.len() < 20 {
         return Err(ParseError::BufferTooSmall(buffer.len()));
@@ -26,9 +26,9 @@ impl<'a> Packet<'a> {
     ///
     /// The buffer is expected contain a valid Ethernet Packet (with an ethertype for PPPoE) and a
     /// PPPoE Packet.  Therefore the buffer must be greater than 20 bytes.
-    pub fn with_buffer(buffer: &'a mut [u8]) -> Result<Self, Error> {
+    pub fn with_buffer(buffer: &'a [u8]) -> Result<Self, Error> {
         ensure_minimal_buffer_size(buffer)?;
-        let (eth_buf, pppoe_buf) = buffer.split_at_mut(14);
+        let (eth_buf, pppoe_buf) = buffer.split_at(14);
 
         Ok(Self {
             ethernet: eth::Header::with_buffer(eth_buf)?,
