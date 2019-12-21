@@ -66,7 +66,7 @@ mod tests {
             pppoe_header.set_code(Code::Padr);
             pppoe_header.clear_eol();
 
-            for tag in pado.pppoe_header().tag_iter() {
+            for tag in pado.pppoe_header().tags() {
                 if let Tag::AcCookie(cookie) = tag {
                     pppoe_header.add_tag(Tag::AcCookie(cookie)).unwrap();
                 }

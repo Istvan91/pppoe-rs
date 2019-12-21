@@ -216,7 +216,7 @@ impl<'a> Header<'a> {
         &self.0[6..]
     }
 
-    pub fn tag_iter(&self) -> TagIterator {
+    pub fn tags(&self) -> TagIterator {
         TagIterator {
             payload: &self.0[6..self.len()],
         }
@@ -246,7 +246,7 @@ impl<'a> HeaderBuilder<'a> {
         &self.0[6..]
     }
 
-    pub fn tag_iter(&self) -> TagIterator {
+    pub fn tags(&self) -> TagIterator {
         TagIterator {
             payload: &self.0[6..self.len()],
         }
@@ -264,7 +264,7 @@ impl<'a> HeaderBuilder<'a> {
     }
 
     pub fn clear_eol(&mut self) {
-        if Some(tag::Tag::EndOfList) == self.tag_iter().last() {
+        if Some(tag::Tag::EndOfList) == self.tags().last() {
             unsafe { self.set_len(self.len() as u16 - 10) }
         }
     }
@@ -313,7 +313,7 @@ impl<'a> HeaderBuilder<'a> {
     ) -> Result<Self, ParseError> {
         let mut padr = Self::create_padr(buffer)?;
 
-        let mut tag_iterator = pado.tag_iter();
+        let mut tag_iterator = pado.tags();
 
         let mut has_service_name = false;
         let mut has_system_name = false;
