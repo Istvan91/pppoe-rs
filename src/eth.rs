@@ -24,7 +24,7 @@ impl<'a> Header<'a> {
     }
 
     /// get the destination mac address
-    pub fn dst_address(&self) -> &[u8; 6] {
+    pub fn dst_address(&self) -> [u8; 6] {
         (&self.0[..6]).try_into().unwrap()
     }
 
